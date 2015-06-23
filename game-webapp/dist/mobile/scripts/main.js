@@ -1,37 +1,33 @@
 $(function () {
 
-    "use strict";
-
     window.msf.logger.level = 'silly';
 
     var username = navigator.userAgent.match(/(opera|chrome|safari|firefox|msie)/i)[0] + ' User';
-    var app;
+    var ui = {};
 
-    var ui = {
-        castButton          : $('#castButton'),
-        castSettings        : $('#castSettings'),
-        castWindowTitle     : $('#castSettings .title'),
-        castWindowDeviceList: $('#castSettings .devices'),
-        castButtonDisconnect: $('#castSettings button.disconnect'),
-        castButtonRescan    : $('#castSettings button.search')
-    };
 
     var setService = function(service){
 
         // Since the mobile web app and tv app are hosted from the same place
         // We will use a little javascript to determine the tv app url
-        //var tvAppUrl = window.location.href.replace('/mobile','/tv');
-        var tvAppUrl = 'LCQmKbSjVf.Casteroids',
+        var tvAppUrl = window.location.href.replace('/mobile','/tv'),
+        //var tvAppUrl = 'LCQmKbSjVf.Casteroids',
             color = null;
 
+        console.debug('Starting app at ', tvAppUrl);
         app = service.application(tvAppUrl, 'com.samsung.multiscreen.casteroids');
 
         app.start(function(err){
             if (err) {
                 console.error("Could not start the app:", err);
             } else {
+                console.debug('App started, connecting...');
                 app.connect({name: username}, function (err) {
-                    if(err) return console.error(err);
+                    if(err) {
+                        console.error(err);
+                    } else {
+                        console.debug('App started and connected.');
+                    }
                 });
             }
         });
@@ -46,7 +42,7 @@ $(function () {
             ui.castWindowTitle.text('Connect to a device');
             app.removeAllListeners();
         });
-
+        
         app.on('slot_update', function(slots){
             var i = 0;
             if (color) {
@@ -70,6 +66,60 @@ $(function () {
 
     var init = function(){
 
+        ui = {
+            content             : $('#content'),
+            castButton          : $('#castButton'),
+            castSettings        : $('#castSettings'),
+            castWindowTitle     : $('#castSettings .title'),
+            castWindowDeviceList: $('#castSettings .devices'),
+            castButtonDisconnect: $('#castSettings button.disconnect'),
+            castButtonRescan    : $('#castSettings button.search'),
+            controlLeft         : $('#left'),
+            controlRight        : $('#right'),
+            controlForward      : $('#up'),
+            controlFire         : $('#fire')
+        };
+
+        function onKeyDown(evt){
+            // console.log(event.keyCode);
+            switch(evt.keyCode) {
+                case 13: // enter
+                case 32: // space
+                    app.publish('fire', 'on');
+                    break;
+                case 38: // up
+                    app.publish('thrust', 'on');
+                    break;
+                case 37: // left
+                    app.publish('rotate', JSON.stringify({rotate: 'left', strength: 10}));
+                    break;
+                case 39: // right
+                    app.publish('rotate', JSON.stringify({rotate: 'right', strength: 10}));
+                default:
+                    break
+            }
+        }
+        
+        function onKeyUp(evt){
+            // console.log(event.keyCode);
+            switch(evt.keyCode) {
+                case 13: // enter
+                case 32: // space
+                    app.publish('fire', 'off');
+                    break;
+                case 38: // up
+                    app.publish('thrust', 'off');
+                    break;
+                case 37: // left
+                    app.publish('rotate', JSON.stringify({rotate: 'none'}));
+                    break;
+                case 39: // right
+                    app.publish('rotate', JSON.stringify({rotate: 'none'}));
+                default:
+                    break
+            }
+        }
+        
         var search = window.msf.search();
 
         search.on('found', function(services){
@@ -88,6 +138,46 @@ $(function () {
         });
 
         search.start();
+
+        ui.controlLeft.on('mousedown touchstart', function(e){
+            e.preventDefault();
+            onKeyDown({keyCode:37});
+        });
+
+        ui.controlRight.on('mousedown touchstart', function(e){
+            e.preventDefault();
+            onKeyDown({keyCode:39});
+        });
+
+        ui.controlFire.on('mousedown touchstart', function(e){
+            e.preventDefault();
+            onKeyDown({keyCode:32});
+        });
+
+        ui.controlForward.on('mousedown touchstart', function(e){
+            e.preventDefault();
+            onKeyDown({keyCode:38});
+        });
+
+        ui.controlLeft.on('mouseup touchend', function(e){
+            e.preventDefault();
+            onKeyUp({keyCode:37});
+        });
+
+        ui.controlRight.on('mouseup touchend', function(e){
+            e.preventDefault();
+            onKeyUp({keyCode:39});
+        });
+
+        ui.controlFire.on('mouseup touchend', function(e){
+            e.preventDefault();
+            onKeyUp({keyCode:32});
+        });
+
+        ui.controlForward.on('mouseup touchend', function(e){
+            e.preventDefault();
+            onKeyUp({keyCode:38});
+        });
 
         ui.castButton.on('click', function(){
             ui.castSettings.fadeToggle(200, 'swing');
@@ -117,43 +207,9 @@ $(function () {
             search.start();
         });
 
-        $(document).on('keydown', function(evt){
-            // console.log(event.keyCode);
-            switch(evt.keyCode) {
-                case 32: // space
-                    app.publish('fire', 'on');
-                    break;
-                case 38: // up
-                    app.publish('thrust', 'on');
-                    break;
-                case 37: // left
-                    app.publish('rotate', JSON.stringify({rotate: 'left', strength: 10}));
-                    break;
-                case 39: // right
-                    app.publish('rotate', JSON.stringify({rotate: 'right', strength: 10}));
-                default:
-                    break
-            }
-        });
+        $(document).on('keydown', onKeyDown);
 
-        $(document).on('keyup', function(evt){
-            // console.log(event.keyCode);
-            switch(evt.keyCode) {
-                case 32: // space
-                    app.publish('fire', 'off');
-                    break;
-                case 38: // up
-                    app.publish('thrust', 'off');
-                    break;
-                case 37: // left
-                    app.publish('rotate', JSON.stringify({rotate: 'none'}));
-                    break;
-                case 39: // right
-                    app.publish('rotate', JSON.stringify({rotate: 'none'}));
-                default:
-                    break
-            }
-        });
+        $(document).on('keyup', onKeyUp);
     };
 
     init();
