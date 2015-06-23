@@ -210,6 +210,8 @@ $(function () {
         $(document).on('keydown', onKeyDown);
 
         $(document).on('keyup', onKeyUp);
+
+        $(document).on('selectstart', function(e){ e.preventDefault(); return false; });
     };
 
     init();
